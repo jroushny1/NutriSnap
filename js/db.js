@@ -127,6 +127,18 @@ class NutriDB {
     return this.getByIndex('entries', 'date', date);
   }
 
+  async getEntriesByDateRange(startDate, endDate) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('entries', 'readonly');
+      const store = tx.objectStore('entries');
+      const index = store.index('date');
+      const range = IDBKeyRange.bound(startDate, endDate);
+      const request = index.getAll(range);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   async deleteEntry(id) {
     return this.delete('entries', id);
   }
@@ -135,33 +147,41 @@ class NutriDB {
     return this.put('entries', entry);
   }
 
-  // Get recent foods (last 20 unique foods)
+  // Get recent foods (last 20 unique foods) using cursor for performance
   async getRecentFoods() {
-    const entries = await this.getAll('entries');
-    const seen = new Set();
-    const recent = [];
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('entries', 'readonly');
+      const store = tx.objectStore('entries');
+      const index = store.index('createdAt');
+      const request = index.openCursor(null, 'prev');
+      const seen = new Set();
+      const recent = [];
 
-    // Sort by createdAt descending
-    entries.sort((a, b) => b.createdAt - a.createdAt);
-
-    for (const entry of entries) {
-      const key = entry.foodId || entry.name;
-      if (!seen.has(key)) {
-        seen.add(key);
-        recent.push({
-          foodId: entry.foodId,
-          name: entry.name,
-          calories: Math.round(entry.calories / entry.servingSize * 100), // per 100g equiv
-          protein: entry.protein,
-          carbs: entry.carbs,
-          fat: entry.fat,
-          servingSize: entry.servingSize,
-          servingUnit: entry.servingUnit
-        });
-        if (recent.length >= 20) break;
-      }
-    }
-    return recent;
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (!cursor || recent.length >= 20) {
+          resolve(recent);
+          return;
+        }
+        const entry = cursor.value;
+        const key = entry.foodId || entry.name;
+        if (!seen.has(key)) {
+          seen.add(key);
+          recent.push({
+            foodId: entry.foodId,
+            name: entry.name,
+            calories: Math.round(entry.calories / entry.servingSize * 100),
+            protein: entry.protein,
+            carbs: entry.carbs,
+            fat: entry.fat,
+            servingSize: entry.servingSize,
+            servingUnit: entry.servingUnit
+          });
+        }
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
   }
 
   // Custom foods

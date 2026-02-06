@@ -32,6 +32,31 @@ class App {
       this.weightChart = new SimpleChart(canvas);
     }
 
+    // Refresh date when app returns from background
+    this._lastDateStr = ui.formatDate(new Date());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const now = new Date();
+        const todayStr = ui.formatDate(now);
+        if (todayStr !== this._lastDateStr) {
+          const wasViewingOldToday = ui.formatDate(ui.currentDate) === this._lastDateStr;
+          this._lastDateStr = todayStr;
+          if (wasViewingOldToday) {
+            ui.currentDate = now;
+          }
+          this.loadDayEntries();
+        }
+        // Check for SW updates
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then(reg => reg.update());
+        }
+        // Auto-sync to Supabase if configured
+        nutriDB.getSetting('supabaseUrl').then(url => {
+          if (url) syncToSupabase().catch(() => {});
+        });
+      }
+    });
+
     // Load initial view
     this.loadDayEntries();
   }
@@ -156,7 +181,7 @@ class App {
     const servings = parseInt(document.getElementById('recipe-servings').value) || 1;
 
     if (!name || ui.recipeIngredients.length === 0) {
-      alert('Please enter a recipe name and add at least one ingredient.');
+      app.showToast('Add a recipe name and at least one ingredient');
       return;
     }
 
@@ -229,6 +254,64 @@ class App {
     this.loadDayEntries();
   }
 
+  // AI Analysis
+  async runAiAnalysis() {
+    if (!ui.aiPhotoBlob) return;
+
+    document.getElementById('ai-hint-section').classList.add('hidden');
+    document.getElementById('ai-loading').classList.remove('hidden');
+
+    try {
+      const hint = document.getElementById('ai-hint-input').value;
+      const result = await analyzeFood(ui.aiPhotoBlob, hint);
+      this._aiResults = result.items;
+
+      if (result.error) {
+        ui.showAiError(result.error);
+      } else if (result.items.length === 0) {
+        ui.showAiError('No food items detected in the photo. Try adding a description hint.');
+      } else {
+        ui.renderAiResults(result.items);
+      }
+    } catch (e) {
+      ui.showAiError(e.message);
+    }
+  }
+
+  async addAiItemToDiary(index) {
+    const item = this._aiResults?.[index];
+    if (!item) return;
+
+    // Determine current meal (default to snacks if no meal context)
+    const meal = ui.currentMeal && ui.currentMeal !== 'recipe-ingredient' ? ui.currentMeal : 'snacks';
+
+    const entry = {
+      date: ui.formatDate(ui.currentDate),
+      meal: meal,
+      foodId: 'ai_' + crypto.randomUUID(),
+      name: item.name,
+      servingSize: item.portion_grams,
+      servingUnit: 'g',
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fiber: 0,
+      photoBlob: ui.aiPhotoBlob
+    };
+
+    await nutriDB.addEntry(entry);
+
+    // Mark item as added visually
+    const itemEl = document.querySelector(`.ai-food-item[data-index="${index}"]`);
+    if (itemEl) {
+      itemEl.style.opacity = '0.5';
+      itemEl.style.pointerEvents = 'none';
+      const cals = itemEl.querySelector('.ai-food-cals');
+      if (cals) cals.textContent = 'Added';
+    }
+  }
+
   // Load progress
   async loadProgress() {
     const weights = await nutriDB.getWeights();
@@ -252,6 +335,21 @@ class App {
   async loadSettings() {
     this.settings = await nutriDB.getSettings();
     ui.renderSettings(this.settings);
+    // Load API key
+    const apiKey = await nutriDB.getSetting('anthropicApiKey');
+    if (apiKey) {
+      document.getElementById('setting-api-key').value = apiKey;
+    }
+    // Load Supabase credentials
+    const supabaseUrl = await nutriDB.getSetting('supabaseUrl');
+    const supabaseKey = await nutriDB.getSetting('supabaseKey');
+    if (supabaseUrl) document.getElementById('setting-supabase-url').value = supabaseUrl;
+    if (supabaseKey) document.getElementById('setting-supabase-key').value = supabaseKey;
+    // Show last sync time
+    const lastSync = await nutriDB.getSetting('lastSyncAt');
+    if (lastSync) {
+      document.getElementById('sync-status').textContent = 'Last synced: ' + new Date(lastSync).toLocaleString();
+    }
   }
 
   // Save settings
@@ -266,9 +364,23 @@ class App {
       weightUnit: document.getElementById('setting-weight-unit').value || 'lbs'
     };
 
+    // Save API key separately (not in bulk settings to avoid overwriting)
+    const apiKey = document.getElementById('setting-api-key').value.trim();
+    if (apiKey) {
+      await nutriDB.setSetting('anthropicApiKey', apiKey);
+    } else {
+      await nutriDB.setSetting('anthropicApiKey', null);
+    }
+
+    // Save Supabase credentials
+    const supabaseUrl = document.getElementById('setting-supabase-url').value.trim();
+    const supabaseKey = document.getElementById('setting-supabase-key').value.trim();
+    await nutriDB.setSetting('supabaseUrl', supabaseUrl || null);
+    await nutriDB.setSetting('supabaseKey', supabaseKey || null);
+
     await nutriDB.setSettings(newSettings);
     this.settings = newSettings;
-    alert('Settings saved!');
+    app.showToast('Settings saved!');
   }
 
   // Export data
@@ -296,11 +408,24 @@ class App {
       const text = await file.text();
       const data = JSON.parse(text);
       await nutriDB.importData(data);
-      alert('Data imported successfully!');
+      app.showToast('Data imported successfully!');
       this.loadDayEntries();
     } catch (error) {
-      alert('Failed to import data: ' + error.message);
+      app.showToast('Failed to import: ' + error.message);
     }
+  }
+
+  // Toast notification
+  showToast(message, duration = 2000) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), duration);
   }
 
   // Complete onboarding

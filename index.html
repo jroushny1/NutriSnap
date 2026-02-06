@@ -27,6 +27,10 @@
                 <span class="nav-icon">📊</span>
                 <span class="nav-label">Progress</span>
             </button>
+            <button class="nav-btn" data-view="insights">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Insights</span>
+            </button>
             <button class="nav-btn" data-view="settings">
                 <span class="nav-icon">⚙️</span>
                 <span class="nav-label">Settings</span>
@@ -140,6 +144,59 @@
                 </div>
             </section>
 
+            <!-- Insights View -->
+            <section id="insights-view" class="view">
+                <header class="view-header">
+                    <h1>Insights</h1>
+                </header>
+                <div class="insights-content">
+                    <div class="streak-badge">
+                        <span id="streak-count">0</span>
+                        <span id="streak-label">days</span>
+                        <span class="streak-desc">logging streak</span>
+                    </div>
+
+                    <div class="insight-card">
+                        <h3>Weekly Calorie Averages</h3>
+                        <div class="chart-container">
+                            <canvas id="calorie-bar-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="insight-card">
+                        <h3>Daily Macro Breakdown (7 days)</h3>
+                        <div class="chart-container">
+                            <canvas id="macro-stacked-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="insight-card">
+                        <h3>Macro Ratios (7-day avg)</h3>
+                        <div class="ratio-bar-container">
+                            <div class="ratio-bar">
+                                <div class="ratio-segment protein" id="ratio-bar-protein"></div>
+                                <div class="ratio-segment carbs" id="ratio-bar-carbs"></div>
+                                <div class="ratio-segment fat" id="ratio-bar-fat"></div>
+                            </div>
+                        </div>
+                        <div class="ratio-labels">
+                            <div class="ratio-label">
+                                <span class="ratio-dot protein"></span>
+                                Protein <strong id="ratio-protein">0%</strong>
+                            </div>
+                            <div class="ratio-label">
+                                <span class="ratio-dot carbs"></span>
+                                Carbs <strong id="ratio-carbs">0%</strong>
+                            </div>
+                            <div class="ratio-label">
+                                <span class="ratio-dot fat"></span>
+                                Fat <strong id="ratio-fat">0%</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Settings View -->
             <section id="settings-view" class="view">
                 <header class="view-header">
@@ -182,6 +239,33 @@
                                 <option value="kg">Kilograms (kg)</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>AI Features</h3>
+                        <p class="setting-hint">Enter your Anthropic API key to enable AI food photo estimation. Get one at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></p>
+                        <div class="setting-row">
+                            <label for="setting-api-key">API Key</label>
+                            <input type="password" id="setting-api-key" placeholder="sk-ant-...">
+                        </div>
+                        <button id="test-api-key-btn" class="btn-secondary">Test Key</button>
+                        <span id="api-key-status"></span>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Cloud Backup</h3>
+                        <p class="setting-hint">Connect to Supabase for automatic cloud backup. Create a free project at <a href="https://supabase.com" target="_blank">supabase.com</a></p>
+                        <div class="setting-row">
+                            <label for="setting-supabase-url">Project URL</label>
+                            <input type="url" id="setting-supabase-url" placeholder="https://xxx.supabase.co">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-supabase-key">Anon Key</label>
+                            <input type="password" id="setting-supabase-key" placeholder="eyJ...">
+                        </div>
+                        <div class="sync-actions">
+                            <button id="sync-now-btn" class="btn-secondary">Sync Now</button>
+                            <button id="restore-cloud-btn" class="btn-secondary">Restore from Cloud</button>
+                        </div>
+                        <div id="sync-status" class="setting-hint"></div>
                     </div>
                     <div class="setting-group">
                         <h3>Data</h3>
@@ -272,6 +356,32 @@
                     </div>
                 </div>
                 <button id="add-serving-btn" class="btn-primary">Add to Diary</button>
+            </div>
+        </div>
+
+        <!-- AI Analysis Modal -->
+        <div id="ai-modal" class="modal">
+            <div class="modal-content modal-full">
+                <header class="modal-header">
+                    <button class="modal-close">&times;</button>
+                    <h2>AI Food Analysis</h2>
+                </header>
+                <div id="ai-photo-preview"></div>
+                <div id="ai-hint-section">
+                    <input type="text" id="ai-hint-input" placeholder="Optional: describe the food (e.g. '8oz chicken breast')">
+                    <button id="ai-analyze-btn" class="btn-primary">Analyze with AI</button>
+                </div>
+                <div id="ai-loading" class="hidden">
+                    <div class="ai-spinner"></div>
+                    <p>Analyzing your food...</p>
+                </div>
+                <div id="ai-results" class="hidden">
+                    <div id="ai-items-list"></div>
+                </div>
+                <div id="ai-error" class="hidden">
+                    <p id="ai-error-message"></p>
+                    <button id="ai-retry-btn" class="btn-secondary">Try Again</button>
+                </div>
             </div>
         </div>
 
@@ -387,8 +497,12 @@
 
     <script src="js/db.js"></script>
     <script src="js/foods.js"></script>
+    <script src="js/openfoodfacts.js"></script>
+    <script src="js/vision.js"></script>
     <script src="js/camera.js"></script>
     <script src="js/charts.js"></script>
+    <script src="js/insights.js"></script>
+    <script src="js/sync.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
     <script>

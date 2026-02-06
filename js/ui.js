@@ -14,7 +14,10 @@ class UI {
 
   // Date utilities
   formatDate(date) {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   formatDisplayDate(date) {
@@ -50,6 +53,7 @@ class UI {
     if (viewName === 'diary') app.loadDayEntries();
     if (viewName === 'recipes') app.loadRecipes();
     if (viewName === 'progress') app.loadProgress();
+    if (viewName === 'insights') insights.render();
     if (viewName === 'settings') app.loadSettings();
   }
 
@@ -107,23 +111,46 @@ class UI {
     `).join('');
   }
 
-  renderSearchResults(results) {
+  renderSearchResults(results, brandResults = null) {
     const container = document.getElementById('food-search-results');
 
-    if (results.length === 0) {
+    let html = '';
+
+    if (results.length === 0 && (!brandResults || brandResults.length === 0)) {
       container.innerHTML = '<div class="empty-state"><p>No foods found</p></div>';
       return;
     }
 
-    container.innerHTML = results.map(food => `
-      <div class="search-result" data-id="${food.id}">
-        <div>
-          <div class="result-name">${food.name}</div>
-          <div class="result-info">${food.category} · ${food.serving}${food.unit}</div>
+    if (results.length > 0) {
+      html += results.map(food => `
+        <div class="search-result" data-id="${food.id}" data-food='${JSON.stringify(food).replace(/'/g, '&#39;')}'>
+          <div>
+            <div class="result-name">${food.name}</div>
+            <div class="result-info">${food.category || ''} · ${food.serving}${food.unit}</div>
+          </div>
+          <span class="result-info">${food.calories} cal</span>
         </div>
-        <span class="result-info">${food.calories} cal</span>
-      </div>
-    `).join('');
+      `).join('');
+    }
+
+    // Brand results section
+    if (brandResults && brandResults.length > 0) {
+      html += '<div class="brand-results-divider">Brand Results</div>';
+      html += brandResults.map(food => `
+        <div class="search-result brand-result" data-id="${food.id}" data-food='${JSON.stringify(food).replace(/'/g, '&#39;')}'>
+          <div>
+            <div class="result-name">${food.name}</div>
+            <div class="result-info">Brand · ${food.serving}${food.unit}</div>
+          </div>
+          <span class="result-info">${food.calories} cal</span>
+        </div>
+      `).join('');
+    } else if (brandResults === null) {
+      // Still loading
+      html += '<div class="brand-results-loading">Searching brands...</div>';
+    }
+
+    container.innerHTML = html;
   }
 
   // Serving modal
@@ -431,6 +458,49 @@ class UI {
     document.getElementById('weight-input-unit').textContent = settings.weightUnit || 'lbs';
   }
 
+  // AI Analysis
+  async openAiModal(photoBlob) {
+    this.aiPhotoBlob = photoBlob;
+    document.getElementById('ai-hint-input').value = '';
+    document.getElementById('ai-loading').classList.add('hidden');
+    document.getElementById('ai-results').classList.add('hidden');
+    document.getElementById('ai-error').classList.add('hidden');
+    document.getElementById('ai-hint-section').classList.remove('hidden');
+
+    // Show photo preview
+    const dataUrl = await camera.blobToDataUrl(photoBlob);
+    document.getElementById('ai-photo-preview').innerHTML = `<img src="${dataUrl}" alt="Food photo">`;
+
+    this.openModal('ai-modal');
+  }
+
+  renderAiResults(items) {
+    const container = document.getElementById('ai-items-list');
+    container.innerHTML = items.map((item, i) => `
+      <div class="ai-food-item" data-index="${i}">
+        <div class="ai-food-info">
+          <div class="ai-food-name">
+            ${item.name}
+            <span class="ai-confidence ${item.confidence}">${item.confidence}</span>
+          </div>
+          <div class="ai-food-macros">${item.portion_grams}g · P:${item.protein}g · C:${item.carbs}g · F:${item.fat}g</div>
+        </div>
+        <span class="ai-food-cals">${item.calories}</span>
+      </div>
+    `).join('');
+
+    document.getElementById('ai-loading').classList.add('hidden');
+    document.getElementById('ai-hint-section').classList.add('hidden');
+    document.getElementById('ai-results').classList.remove('hidden');
+  }
+
+  showAiError(message) {
+    document.getElementById('ai-error-message').textContent = message;
+    document.getElementById('ai-loading').classList.add('hidden');
+    document.getElementById('ai-hint-section').classList.add('hidden');
+    document.getElementById('ai-error').classList.remove('hidden');
+  }
+
   // Onboarding
   showOnboarding() {
     this.openModal('onboarding-modal');
@@ -485,9 +555,23 @@ class UI {
     let searchTimeout;
     document.getElementById('food-search-input').addEventListener('input', (e) => {
       clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        const results = searchFoods(e.target.value);
-        this.renderSearchResults(results);
+      searchTimeout = setTimeout(async () => {
+        const query = e.target.value;
+        // Show local results immediately
+        const results = await searchFoods(query);
+        this.renderSearchResults(results, null); // null = brand loading
+
+        // Fire OFF search in background
+        if (query.length >= 3) {
+          searchOpenFoodFactsDebounced(query).then(brandResults => {
+            // Re-check the input hasn't changed
+            if (document.getElementById('food-search-input').value === query) {
+              this.renderSearchResults(results, brandResults);
+            }
+          });
+        } else {
+          this.renderSearchResults(results, []);
+        }
       }, 200);
     });
 
@@ -495,8 +579,20 @@ class UI {
     document.getElementById('food-search-results').addEventListener('click', (e) => {
       const result = e.target.closest('.search-result');
       if (result) {
-        const food = getFoodById(result.dataset.id);
-        if (food) this.openServingModal(food);
+        let food = null;
+        // Try data-food attribute first (works for both local and brand)
+        if (result.dataset.food) {
+          food = JSON.parse(result.dataset.food);
+        } else {
+          food = getFoodById(result.dataset.id);
+        }
+        if (food) {
+          // Cache brand foods for offline reuse
+          if (food.source === 'openfoodfacts' && typeof cacheOpenFoodFactsItem === 'function') {
+            cacheOpenFoodFactsItem(food);
+          }
+          this.openServingModal(food);
+        }
       }
     });
 
@@ -515,11 +611,6 @@ class UI {
 
     // Add photo to serving
     document.getElementById('serving-add-photo').addEventListener('click', () => {
-      camera.openCamera((blob) => this.setServingPhoto(blob));
-    });
-
-    // Camera from modal
-    document.getElementById('modal-camera-btn').addEventListener('click', () => {
       camera.openCamera((blob) => this.setServingPhoto(blob));
     });
 
@@ -618,6 +709,83 @@ class UI {
       const file = e.target.files[0];
       if (file) app.importData(file);
       e.target.value = '';
+    });
+
+    // AI Analysis - camera button opens AI modal instead of just adding photo
+    document.getElementById('modal-camera-btn').addEventListener('click', async () => {
+      const hasKey = await nutriDB.getSetting('anthropicApiKey');
+      if (hasKey) {
+        camera.openCamera((blob) => {
+          this.closeAllModals();
+          this.openAiModal(blob);
+        });
+      } else {
+        camera.openCamera((blob) => this.setServingPhoto(blob));
+      }
+    });
+
+    document.getElementById('ai-analyze-btn').addEventListener('click', () => {
+      app.runAiAnalysis();
+    });
+
+    document.getElementById('ai-retry-btn').addEventListener('click', () => {
+      document.getElementById('ai-error').classList.add('hidden');
+      document.getElementById('ai-hint-section').classList.remove('hidden');
+    });
+
+    // AI results click — add item to diary
+    document.getElementById('ai-items-list').addEventListener('click', (e) => {
+      const item = e.target.closest('.ai-food-item');
+      if (item) {
+        app.addAiItemToDiary(parseInt(item.dataset.index));
+      }
+    });
+
+    // Settings - API key
+    document.getElementById('test-api-key-btn').addEventListener('click', async () => {
+      const key = document.getElementById('setting-api-key').value.trim();
+      const status = document.getElementById('api-key-status');
+      if (!key) {
+        status.textContent = 'Enter a key first';
+        status.style.color = 'var(--protein)';
+        return;
+      }
+      status.textContent = 'Testing...';
+      status.style.color = 'var(--text-secondary)';
+      const valid = await testApiKey(key);
+      if (valid) {
+        status.textContent = 'Valid!';
+        status.style.color = 'var(--primary)';
+      } else {
+        status.textContent = 'Invalid key';
+        status.style.color = 'var(--protein)';
+      }
+    });
+
+    // Cloud Backup
+    document.getElementById('sync-now-btn').addEventListener('click', async () => {
+      const status = document.getElementById('sync-status');
+      status.textContent = 'Syncing...';
+      try {
+        const result = await syncToSupabase();
+        status.textContent = `Synced! ${result.entries} entries, ${result.weights} weights, ${result.recipes} recipes`;
+        app.showToast('Backup synced!');
+      } catch (e) {
+        status.textContent = 'Sync failed: ' + e.message;
+      }
+    });
+
+    document.getElementById('restore-cloud-btn').addEventListener('click', async () => {
+      const status = document.getElementById('sync-status');
+      status.textContent = 'Restoring...';
+      try {
+        const count = await restoreFromSupabase();
+        status.textContent = `Restored ${count} records from cloud`;
+        app.showToast('Data restored!');
+        app.loadDayEntries();
+      } catch (e) {
+        status.textContent = 'Restore failed: ' + e.message;
+      }
     });
 
     // Onboarding

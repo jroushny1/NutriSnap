@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nutrisnap-v1';
+const CACHE_NAME = 'nutrisnap-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -7,11 +7,24 @@ const ASSETS = [
   '/js/app.js',
   '/js/db.js',
   '/js/foods.js',
+  '/js/openfoodfacts.js',
+  '/js/vision.js',
   '/js/camera.js',
   '/js/charts.js',
+  '/js/insights.js',
+  '/js/sync.js',
   '/js/ui.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png'
+];
+
+// API domains that should never be cached
+const API_DOMAINS = [
+  'api.anthropic.com',
+  'world.openfoodfacts.org',
+  'supabase.co',
+  'supabase.com',
+  'cdn.jsdelivr.net'
 ];
 
 // Install - cache assets
@@ -37,6 +50,14 @@ self.addEventListener('activate', (event) => {
 
 // Fetch - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Never cache API requests
+  if (API_DOMAINS.some(domain => url.hostname.includes(domain))) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
