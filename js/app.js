@@ -181,7 +181,7 @@ class App {
     const servings = parseInt(document.getElementById('recipe-servings').value) || 1;
 
     if (!name || ui.recipeIngredients.length === 0) {
-      alert('Please enter a recipe name and add at least one ingredient.');
+      app.showToast('Add a recipe name and at least one ingredient');
       return;
     }
 
@@ -408,10 +408,10 @@ class App {
       const text = await file.text();
       const data = JSON.parse(text);
       await nutriDB.importData(data);
-      alert('Data imported successfully!');
+      app.showToast('Data imported successfully!');
       this.loadDayEntries();
     } catch (error) {
-      alert('Failed to import data: ' + error.message);
+      app.showToast('Failed to import: ' + error.message);
     }
   }
 
