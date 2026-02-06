@@ -250,6 +250,64 @@ class App {
     this.loadDayEntries();
   }
 
+  // AI Analysis
+  async runAiAnalysis() {
+    if (!ui.aiPhotoBlob) return;
+
+    document.getElementById('ai-hint-section').classList.add('hidden');
+    document.getElementById('ai-loading').classList.remove('hidden');
+
+    try {
+      const hint = document.getElementById('ai-hint-input').value;
+      const result = await analyzeFood(ui.aiPhotoBlob, hint);
+      this._aiResults = result.items;
+
+      if (result.error) {
+        ui.showAiError(result.error);
+      } else if (result.items.length === 0) {
+        ui.showAiError('No food items detected in the photo. Try adding a description hint.');
+      } else {
+        ui.renderAiResults(result.items);
+      }
+    } catch (e) {
+      ui.showAiError(e.message);
+    }
+  }
+
+  async addAiItemToDiary(index) {
+    const item = this._aiResults?.[index];
+    if (!item) return;
+
+    // Determine current meal (default to snacks if no meal context)
+    const meal = ui.currentMeal && ui.currentMeal !== 'recipe-ingredient' ? ui.currentMeal : 'snacks';
+
+    const entry = {
+      date: ui.formatDate(ui.currentDate),
+      meal: meal,
+      foodId: 'ai_' + crypto.randomUUID(),
+      name: item.name,
+      servingSize: item.portion_grams,
+      servingUnit: 'g',
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      fiber: 0,
+      photoBlob: ui.aiPhotoBlob
+    };
+
+    await nutriDB.addEntry(entry);
+
+    // Mark item as added visually
+    const itemEl = document.querySelector(`.ai-food-item[data-index="${index}"]`);
+    if (itemEl) {
+      itemEl.style.opacity = '0.5';
+      itemEl.style.pointerEvents = 'none';
+      const cals = itemEl.querySelector('.ai-food-cals');
+      if (cals) cals.textContent = 'Added';
+    }
+  }
+
   // Load progress
   async loadProgress() {
     const weights = await nutriDB.getWeights();
@@ -273,6 +331,11 @@ class App {
   async loadSettings() {
     this.settings = await nutriDB.getSettings();
     ui.renderSettings(this.settings);
+    // Load API key
+    const apiKey = await nutriDB.getSetting('anthropicApiKey');
+    if (apiKey) {
+      document.getElementById('setting-api-key').value = apiKey;
+    }
   }
 
   // Save settings
@@ -287,9 +350,17 @@ class App {
       weightUnit: document.getElementById('setting-weight-unit').value || 'lbs'
     };
 
+    // Save API key separately (not in bulk settings to avoid overwriting)
+    const apiKey = document.getElementById('setting-api-key').value.trim();
+    if (apiKey) {
+      await nutriDB.setSetting('anthropicApiKey', apiKey);
+    } else {
+      await nutriDB.setSetting('anthropicApiKey', null);
+    }
+
     await nutriDB.setSettings(newSettings);
     this.settings = newSettings;
-    alert('Settings saved!');
+    app.showToast('Settings saved!');
   }
 
   // Export data
@@ -322,6 +393,19 @@ class App {
     } catch (error) {
       alert('Failed to import data: ' + error.message);
     }
+  }
+
+  // Toast notification
+  showToast(message, duration = 2000) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), duration);
   }
 
   // Complete onboarding

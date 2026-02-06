@@ -457,6 +457,49 @@ class UI {
     document.getElementById('weight-input-unit').textContent = settings.weightUnit || 'lbs';
   }
 
+  // AI Analysis
+  async openAiModal(photoBlob) {
+    this.aiPhotoBlob = photoBlob;
+    document.getElementById('ai-hint-input').value = '';
+    document.getElementById('ai-loading').classList.add('hidden');
+    document.getElementById('ai-results').classList.add('hidden');
+    document.getElementById('ai-error').classList.add('hidden');
+    document.getElementById('ai-hint-section').classList.remove('hidden');
+
+    // Show photo preview
+    const dataUrl = await camera.blobToDataUrl(photoBlob);
+    document.getElementById('ai-photo-preview').innerHTML = `<img src="${dataUrl}" alt="Food photo">`;
+
+    this.openModal('ai-modal');
+  }
+
+  renderAiResults(items) {
+    const container = document.getElementById('ai-items-list');
+    container.innerHTML = items.map((item, i) => `
+      <div class="ai-food-item" data-index="${i}">
+        <div class="ai-food-info">
+          <div class="ai-food-name">
+            ${item.name}
+            <span class="ai-confidence ${item.confidence}">${item.confidence}</span>
+          </div>
+          <div class="ai-food-macros">${item.portion_grams}g · P:${item.protein}g · C:${item.carbs}g · F:${item.fat}g</div>
+        </div>
+        <span class="ai-food-cals">${item.calories}</span>
+      </div>
+    `).join('');
+
+    document.getElementById('ai-loading').classList.add('hidden');
+    document.getElementById('ai-hint-section').classList.add('hidden');
+    document.getElementById('ai-results').classList.remove('hidden');
+  }
+
+  showAiError(message) {
+    document.getElementById('ai-error-message').textContent = message;
+    document.getElementById('ai-loading').classList.add('hidden');
+    document.getElementById('ai-hint-section').classList.add('hidden');
+    document.getElementById('ai-error').classList.remove('hidden');
+  }
+
   // Onboarding
   showOnboarding() {
     this.openModal('onboarding-modal');
@@ -570,11 +613,6 @@ class UI {
       camera.openCamera((blob) => this.setServingPhoto(blob));
     });
 
-    // Camera from modal
-    document.getElementById('modal-camera-btn').addEventListener('click', () => {
-      camera.openCamera((blob) => this.setServingPhoto(blob));
-    });
-
     // Add serving to diary
     document.getElementById('add-serving-btn').addEventListener('click', () => {
       app.addFoodEntry();
@@ -670,6 +708,57 @@ class UI {
       const file = e.target.files[0];
       if (file) app.importData(file);
       e.target.value = '';
+    });
+
+    // AI Analysis - camera button opens AI modal instead of just adding photo
+    document.getElementById('modal-camera-btn').addEventListener('click', async () => {
+      const hasKey = await nutriDB.getSetting('anthropicApiKey');
+      if (hasKey) {
+        camera.openCamera((blob) => {
+          this.closeAllModals();
+          this.openAiModal(blob);
+        });
+      } else {
+        camera.openCamera((blob) => this.setServingPhoto(blob));
+      }
+    });
+
+    document.getElementById('ai-analyze-btn').addEventListener('click', () => {
+      app.runAiAnalysis();
+    });
+
+    document.getElementById('ai-retry-btn').addEventListener('click', () => {
+      document.getElementById('ai-error').classList.add('hidden');
+      document.getElementById('ai-hint-section').classList.remove('hidden');
+    });
+
+    // AI results click — add item to diary
+    document.getElementById('ai-items-list').addEventListener('click', (e) => {
+      const item = e.target.closest('.ai-food-item');
+      if (item) {
+        app.addAiItemToDiary(parseInt(item.dataset.index));
+      }
+    });
+
+    // Settings - API key
+    document.getElementById('test-api-key-btn').addEventListener('click', async () => {
+      const key = document.getElementById('setting-api-key').value.trim();
+      const status = document.getElementById('api-key-status');
+      if (!key) {
+        status.textContent = 'Enter a key first';
+        status.style.color = 'var(--protein)';
+        return;
+      }
+      status.textContent = 'Testing...';
+      status.style.color = 'var(--text-secondary)';
+      const valid = await testApiKey(key);
+      if (valid) {
+        status.textContent = 'Valid!';
+        status.style.color = 'var(--primary)';
+      } else {
+        status.textContent = 'Invalid key';
+        status.style.color = 'var(--protein)';
+      }
     });
 
     // Onboarding
