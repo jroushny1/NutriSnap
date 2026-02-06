@@ -53,6 +53,7 @@ class UI {
     if (viewName === 'diary') app.loadDayEntries();
     if (viewName === 'recipes') app.loadRecipes();
     if (viewName === 'progress') app.loadProgress();
+    if (viewName === 'insights') insights.render();
     if (viewName === 'settings') app.loadSettings();
   }
 
