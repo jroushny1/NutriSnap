@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#4CAF50">
+    <title>NutriSnap</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav id="bottom-nav">
+            <button class="nav-btn active" data-view="diary">
+                <span class="nav-icon">📖</span>
+                <span class="nav-label">Diary</span>
+            </button>
+            <button class="nav-btn" data-view="recipes">
+                <span class="nav-icon">📝</span>
+                <span class="nav-label">Recipes</span>
+            </button>
+            <button class="nav-btn" data-view="progress">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Progress</span>
+            </button>
+            <button class="nav-btn" data-view="settings">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </button>
+        </nav>
+
+        <!-- Views -->
+        <main id="main-content">
+            <!-- Diary View -->
+            <section id="diary-view" class="view active">
+                <header class="view-header">
+                    <button id="prev-day" class="date-nav">&lt;</button>
+                    <h1 id="current-date">Today</h1>
+                    <button id="next-day" class="date-nav">&gt;</button>
+                </header>
+
+                <div id="daily-summary">
+                    <div class="calorie-ring">
+                        <svg viewBox="0 0 120 120">
+                            <circle class="ring-bg" cx="60" cy="60" r="54"/>
+                            <circle class="ring-progress" cx="60" cy="60" r="54" id="calorie-ring"/>
+                        </svg>
+                        <div class="ring-text">
+                            <span id="calories-consumed">0</span>
+                            <span class="ring-label">of <span id="calories-goal">1800</span></span>
+                        </div>
+                    </div>
+                    <div class="macro-bars">
+                        <div class="macro-bar">
+                            <span class="macro-label">Protein</span>
+                            <div class="bar-track"><div class="bar-fill protein" id="protein-bar"></div></div>
+                            <span class="macro-value"><span id="protein-value">0</span>g</span>
+                        </div>
+                        <div class="macro-bar">
+                            <span class="macro-label">Carbs</span>
+                            <div class="bar-track"><div class="bar-fill carbs" id="carbs-bar"></div></div>
+                            <span class="macro-value"><span id="carbs-value">0</span>g</span>
+                        </div>
+                        <div class="macro-bar">
+                            <span class="macro-label">Fat</span>
+                            <div class="bar-track"><div class="bar-fill fat" id="fat-bar"></div></div>
+                            <span class="macro-value"><span id="fat-value">0</span>g</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="meals-container">
+                    <div class="meal-section" data-meal="breakfast">
+                        <div class="meal-header">
+                            <h2>Breakfast</h2>
+                            <span class="meal-calories">0 cal</span>
+                        </div>
+                        <div class="meal-items"></div>
+                        <button class="add-food-btn" data-meal="breakfast">+ Add Food</button>
+                    </div>
+                    <div class="meal-section" data-meal="lunch">
+                        <div class="meal-header">
+                            <h2>Lunch</h2>
+                            <span class="meal-calories">0 cal</span>
+                        </div>
+                        <div class="meal-items"></div>
+                        <button class="add-food-btn" data-meal="lunch">+ Add Food</button>
+                    </div>
+                    <div class="meal-section" data-meal="dinner">
+                        <div class="meal-header">
+                            <h2>Dinner</h2>
+                            <span class="meal-calories">0 cal</span>
+                        </div>
+                        <div class="meal-items"></div>
+                        <button class="add-food-btn" data-meal="dinner">+ Add Food</button>
+                    </div>
+                    <div class="meal-section" data-meal="snacks">
+                        <div class="meal-header">
+                            <h2>Snacks</h2>
+                            <span class="meal-calories">0 cal</span>
+                        </div>
+                        <div class="meal-items"></div>
+                        <button class="add-food-btn" data-meal="snacks">+ Add Food</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recipes View -->
+            <section id="recipes-view" class="view">
+                <header class="view-header">
+                    <h1>My Recipes</h1>
+                    <button id="new-recipe-btn" class="header-btn">+ New</button>
+                </header>
+                <div id="recipes-list"></div>
+            </section>
+
+            <!-- Progress View -->
+            <section id="progress-view" class="view">
+                <header class="view-header">
+                    <h1>Progress</h1>
+                </header>
+                <div id="weight-section">
+                    <div class="weight-card">
+                        <div class="weight-current">
+                            <span id="current-weight">--</span>
+                            <span class="weight-unit" id="weight-unit-display">lbs</span>
+                        </div>
+                        <div class="weight-goal">
+                            Goal: <span id="target-weight">--</span> <span class="weight-unit">lbs</span>
+                        </div>
+                        <button id="log-weight-btn" class="btn-primary">Log Weight</button>
+                    </div>
+                    <div id="weight-chart-container">
+                        <canvas id="weight-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="settings-view" class="view">
+                <header class="view-header">
+                    <h1>Settings</h1>
+                </header>
+                <div class="settings-form">
+                    <div class="setting-group">
+                        <h3>Daily Goals</h3>
+                        <div class="setting-row">
+                            <label for="setting-calories">Calories</label>
+                            <input type="number" id="setting-calories" value="1800">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-protein">Protein (g)</label>
+                            <input type="number" id="setting-protein" value="120">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-carbs">Carbs (g)</label>
+                            <input type="number" id="setting-carbs" value="180">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-fat">Fat (g)</label>
+                            <input type="number" id="setting-fat" value="60">
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Weight Goals</h3>
+                        <div class="setting-row">
+                            <label for="setting-start-weight">Starting Weight</label>
+                            <input type="number" id="setting-start-weight" step="0.1">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-target-weight">Target Weight</label>
+                            <input type="number" id="setting-target-weight" step="0.1">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-weight-unit">Unit</label>
+                            <select id="setting-weight-unit">
+                                <option value="lbs">Pounds (lbs)</option>
+                                <option value="kg">Kilograms (kg)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Data</h3>
+                        <button id="export-data-btn" class="btn-secondary">Export Data (JSON)</button>
+                        <button id="import-data-btn" class="btn-secondary">Import Data</button>
+                        <input type="file" id="import-file" accept=".json" style="display:none">
+                    </div>
+                    <button id="save-settings-btn" class="btn-primary">Save Settings</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Food Search Modal -->
+        <div id="food-modal" class="modal">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <button class="modal-close">&times;</button>
+                    <h2>Add Food</h2>
+                    <button id="modal-camera-btn" class="header-btn">📷</button>
+                </header>
+                <div class="modal-tabs">
+                    <button class="tab-btn active" data-tab="search">Search</button>
+                    <button class="tab-btn" data-tab="recent">Recent</button>
+                    <button class="tab-btn" data-tab="custom">Custom</button>
+                </div>
+                <div class="tab-content active" id="search-tab">
+                    <input type="text" id="food-search-input" placeholder="Search foods...">
+                    <div id="food-search-results"></div>
+                </div>
+                <div class="tab-content" id="recent-tab">
+                    <div id="recent-foods-list"></div>
+                </div>
+                <div class="tab-content" id="custom-tab">
+                    <form id="custom-food-form">
+                        <input type="text" id="custom-name" placeholder="Food name" required>
+                        <div class="input-row">
+                            <input type="number" id="custom-calories" placeholder="Calories" required>
+                            <input type="number" id="custom-protein" placeholder="Protein (g)">
+                        </div>
+                        <div class="input-row">
+                            <input type="number" id="custom-carbs" placeholder="Carbs (g)">
+                            <input type="number" id="custom-fat" placeholder="Fat (g)">
+                        </div>
+                        <button type="submit" class="btn-primary">Add Custom Food</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Serving Size Modal -->
+        <div id="serving-modal" class="modal">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <button class="modal-close">&times;</button>
+                    <h2 id="serving-food-name">Food Name</h2>
+                </header>
+                <div class="serving-photo-section">
+                    <div id="serving-photo-preview"></div>
+                    <button id="serving-add-photo" class="btn-secondary">Add Photo</button>
+                </div>
+                <div class="serving-inputs">
+                    <div class="input-row">
+                        <input type="number" id="serving-amount" value="1" min="0.1" step="0.1">
+                        <select id="serving-unit">
+                            <option value="serving">serving</option>
+                            <option value="g">grams</option>
+                            <option value="oz">oz</option>
+                            <option value="cup">cup</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="serving-nutrition">
+                    <div class="nutrition-row">
+                        <span>Calories</span>
+                        <span id="serving-calories">0</span>
+                    </div>
+                    <div class="nutrition-row">
+                        <span>Protein</span>
+                        <span><span id="serving-protein">0</span>g</span>
+                    </div>
+                    <div class="nutrition-row">
+                        <span>Carbs</span>
+                        <span><span id="serving-carbs">0</span>g</span>
+                    </div>
+                    <div class="nutrition-row">
+                        <span>Fat</span>
+                        <span><span id="serving-fat">0</span>g</span>
+                    </div>
+                </div>
+                <button id="add-serving-btn" class="btn-primary">Add to Diary</button>
+            </div>
+        </div>
+
+        <!-- Recipe Edit Modal -->
+        <div id="recipe-modal" class="modal">
+            <div class="modal-content modal-full">
+                <header class="modal-header">
+                    <button class="modal-close">&times;</button>
+                    <h2 id="recipe-modal-title">New Recipe</h2>
+                    <button id="save-recipe-btn" class="header-btn">Save</button>
+                </header>
+                <div class="recipe-form">
+                    <input type="text" id="recipe-name" placeholder="Recipe name" required>
+                    <div class="input-row">
+                        <label>Servings:</label>
+                        <input type="number" id="recipe-servings" value="4" min="1">
+                    </div>
+                    <div class="recipe-photo-section">
+                        <div id="recipe-photo-preview"></div>
+                        <button id="recipe-add-photo" class="btn-secondary">Add Photo</button>
+                    </div>
+                    <div class="recipe-ingredients">
+                        <h3>Ingredients</h3>
+                        <div id="recipe-ingredients-list"></div>
+                        <button id="recipe-add-ingredient" class="btn-secondary">+ Add Ingredient</button>
+                    </div>
+                    <div class="recipe-totals">
+                        <h3>Per Serving</h3>
+                        <div class="totals-grid">
+                            <div><span id="recipe-cal-per">0</span> cal</div>
+                            <div><span id="recipe-pro-per">0</span>g protein</div>
+                            <div><span id="recipe-carb-per">0</span>g carbs</div>
+                            <div><span id="recipe-fat-per">0</span>g fat</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weight Log Modal -->
+        <div id="weight-modal" class="modal">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <button class="modal-close">&times;</button>
+                    <h2>Log Weight</h2>
+                </header>
+                <div class="weight-form">
+                    <div class="input-row">
+                        <input type="number" id="weight-input" step="0.1" placeholder="Weight">
+                        <span id="weight-input-unit">lbs</span>
+                    </div>
+                    <input type="date" id="weight-date">
+                    <button id="save-weight-btn" class="btn-primary">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Camera Capture -->
+        <div id="camera-modal" class="modal">
+            <div class="modal-content modal-full">
+                <header class="modal-header">
+                    <button class="modal-close">&times;</button>
+                    <h2>Take Photo</h2>
+                </header>
+                <div id="camera-container">
+                    <video id="camera-video" autoplay playsinline></video>
+                    <canvas id="camera-canvas" style="display:none"></canvas>
+                </div>
+                <div class="camera-controls">
+                    <button id="camera-capture" class="btn-primary btn-round">📷</button>
+                    <button id="camera-upload" class="btn-secondary">Upload</button>
+                    <input type="file" id="photo-upload" accept="image/*" style="display:none">
+                </div>
+            </div>
+        </div>
+
+        <!-- Onboarding -->
+        <div id="onboarding-modal" class="modal">
+            <div class="modal-content">
+                <div class="onboarding-step" data-step="1">
+                    <h2>Welcome to NutriSnap!</h2>
+                    <p>Let's set up your goals to get started.</p>
+                    <button class="btn-primary onboard-next">Get Started</button>
+                </div>
+                <div class="onboarding-step" data-step="2" style="display:none">
+                    <h2>Daily Calorie Goal</h2>
+                    <p>How many calories do you want to target per day?</p>
+                    <input type="number" id="onboard-calories" value="1800">
+                    <button class="btn-primary onboard-next">Next</button>
+                </div>
+                <div class="onboarding-step" data-step="3" style="display:none">
+                    <h2>Weight Goals</h2>
+                    <div class="input-row">
+                        <label>Current weight:</label>
+                        <input type="number" id="onboard-current-weight" step="0.1">
+                    </div>
+                    <div class="input-row">
+                        <label>Target weight:</label>
+                        <input type="number" id="onboard-target-weight" step="0.1">
+                    </div>
+                    <div class="input-row">
+                        <label>Unit:</label>
+                        <select id="onboard-weight-unit">
+                            <option value="lbs">Pounds</option>
+                            <option value="kg">Kilograms</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary onboard-next">Finish</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script src="js/foods.js"></script>
+    <script src="js/camera.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+</body>
+</html>

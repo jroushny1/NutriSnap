@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generate Icons</title></head>
+<body>
+<h1>NutriSnap Icon Generator</h1>
+<p>Right-click each canvas and "Save Image As" to create the icon files:</p>
+<h3>192x192:</h3>
+<canvas id="icon192" width="192" height="192"></canvas>
+<h3>512x512:</h3>
+<canvas id="icon512" width="512" height="512"></canvas>
+<script>
+function drawIcon(canvas) {
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const center = size / 2;
+  
+  // Background circle
+  ctx.fillStyle = '#4CAF50';
+  ctx.beginPath();
+  ctx.arc(center, center, size * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Apple shape
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(center, center + size * 0.05, size * 0.25, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Leaf
+  ctx.fillStyle = '#2E7D32';
+  ctx.beginPath();
+  ctx.ellipse(center + size * 0.08, center - size * 0.2, size * 0.1, size * 0.05, Math.PI / 4, 0, Math.PI * 2);
+  ctx.fill();
+  
+  // Stem
+  ctx.strokeStyle = '#5D4037';
+  ctx.lineWidth = size * 0.02;
+  ctx.beginPath();
+  ctx.moveTo(center, center - size * 0.12);
+  ctx.lineTo(center, center - size * 0.22);
+  ctx.stroke();
+}
+drawIcon(document.getElementById('icon192'));
+drawIcon(document.getElementById('icon512'));
+</script>
+</body>
+</html>
