@@ -110,23 +110,46 @@ class UI {
     `).join('');
   }
 
-  renderSearchResults(results) {
+  renderSearchResults(results, brandResults = null) {
     const container = document.getElementById('food-search-results');
 
-    if (results.length === 0) {
+    let html = '';
+
+    if (results.length === 0 && (!brandResults || brandResults.length === 0)) {
       container.innerHTML = '<div class="empty-state"><p>No foods found</p></div>';
       return;
     }
 
-    container.innerHTML = results.map(food => `
-      <div class="search-result" data-id="${food.id}">
-        <div>
-          <div class="result-name">${food.name}</div>
-          <div class="result-info">${food.category} · ${food.serving}${food.unit}</div>
+    if (results.length > 0) {
+      html += results.map(food => `
+        <div class="search-result" data-id="${food.id}" data-food='${JSON.stringify(food).replace(/'/g, '&#39;')}'>
+          <div>
+            <div class="result-name">${food.name}</div>
+            <div class="result-info">${food.category || ''} · ${food.serving}${food.unit}</div>
+          </div>
+          <span class="result-info">${food.calories} cal</span>
         </div>
-        <span class="result-info">${food.calories} cal</span>
-      </div>
-    `).join('');
+      `).join('');
+    }
+
+    // Brand results section
+    if (brandResults && brandResults.length > 0) {
+      html += '<div class="brand-results-divider">Brand Results</div>';
+      html += brandResults.map(food => `
+        <div class="search-result brand-result" data-id="${food.id}" data-food='${JSON.stringify(food).replace(/'/g, '&#39;')}'>
+          <div>
+            <div class="result-name">${food.name}</div>
+            <div class="result-info">Brand · ${food.serving}${food.unit}</div>
+          </div>
+          <span class="result-info">${food.calories} cal</span>
+        </div>
+      `).join('');
+    } else if (brandResults === null) {
+      // Still loading
+      html += '<div class="brand-results-loading">Searching brands...</div>';
+    }
+
+    container.innerHTML = html;
   }
 
   // Serving modal
@@ -489,8 +512,22 @@ class UI {
     document.getElementById('food-search-input').addEventListener('input', (e) => {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(async () => {
-        const results = await searchFoods(e.target.value);
-        this.renderSearchResults(results);
+        const query = e.target.value;
+        // Show local results immediately
+        const results = await searchFoods(query);
+        this.renderSearchResults(results, null); // null = brand loading
+
+        // Fire OFF search in background
+        if (query.length >= 3) {
+          searchOpenFoodFactsDebounced(query).then(brandResults => {
+            // Re-check the input hasn't changed
+            if (document.getElementById('food-search-input').value === query) {
+              this.renderSearchResults(results, brandResults);
+            }
+          });
+        } else {
+          this.renderSearchResults(results, []);
+        }
       }, 200);
     });
 
@@ -498,8 +535,20 @@ class UI {
     document.getElementById('food-search-results').addEventListener('click', (e) => {
       const result = e.target.closest('.search-result');
       if (result) {
-        const food = getFoodById(result.dataset.id);
-        if (food) this.openServingModal(food);
+        let food = null;
+        // Try data-food attribute first (works for both local and brand)
+        if (result.dataset.food) {
+          food = JSON.parse(result.dataset.food);
+        } else {
+          food = getFoodById(result.dataset.id);
+        }
+        if (food) {
+          // Cache brand foods for offline reuse
+          if (food.source === 'openfoodfacts' && typeof cacheOpenFoodFactsItem === 'function') {
+            cacheOpenFoodFactsItem(food);
+          }
+          this.openServingModal(food);
+        }
       }
     });
 
