@@ -231,49 +231,58 @@ const FOOD_DATABASE = [
   { id: 'usda_506', name: 'Chili con Carne', category: 'Soup', calories: 125, protein: 8, carbs: 12, fat: 5, fiber: 4, serving: 245, unit: 'g' },
 ];
 
-// Food search with fuzzy matching
-function searchFoods(query, limit = 20) {
+// Score a food against a search query
+function _scoreFoodMatch(food, lowerQuery, words) {
+  const lowerName = food.name.toLowerCase();
+  const lowerCategory = (food.category || '').toLowerCase();
+  let score = 0;
+
+  if (lowerName === lowerQuery) {
+    score = 1000;
+  } else if (lowerName.startsWith(lowerQuery)) {
+    score = 500;
+  } else if (lowerName.includes(lowerQuery)) {
+    score = 200;
+  } else if (words.every(w => lowerName.includes(w) || lowerCategory.includes(w))) {
+    score = 100;
+  } else {
+    const matchCount = words.filter(w => lowerName.includes(w) || lowerCategory.includes(w)).length;
+    score = matchCount * 30;
+  }
+
+  return score;
+}
+
+// Food search with fuzzy matching (includes custom foods from IndexedDB)
+async function searchFoods(query, limit = 20) {
   if (!query || query.length < 2) return [];
 
   const lowerQuery = query.toLowerCase();
   const words = lowerQuery.split(/\s+/);
 
-  const results = FOOD_DATABASE
-    .map(food => {
-      const lowerName = food.name.toLowerCase();
-      const lowerCategory = food.category.toLowerCase();
-      let score = 0;
+  // Score USDA foods
+  const scored = FOOD_DATABASE.map(food => ({
+    food, score: _scoreFoodMatch(food, lowerQuery, words)
+  }));
 
-      // Exact match gets highest score
-      if (lowerName === lowerQuery) {
-        score = 1000;
+  // Also score custom foods from IndexedDB
+  try {
+    const customFoods = await nutriDB.getCustomFoods();
+    for (const food of customFoods) {
+      const score = _scoreFoodMatch(food, lowerQuery, words);
+      if (score > 0) {
+        scored.push({ food, score: score + 1 }); // slight boost so custom foods rank above ties
       }
-      // Starts with query
-      else if (lowerName.startsWith(lowerQuery)) {
-        score = 500;
-      }
-      // Contains exact query
-      else if (lowerName.includes(lowerQuery)) {
-        score = 200;
-      }
-      // All words match somewhere
-      else if (words.every(w => lowerName.includes(w) || lowerCategory.includes(w))) {
-        score = 100;
-      }
-      // Some words match
-      else {
-        const matchCount = words.filter(w => lowerName.includes(w) || lowerCategory.includes(w)).length;
-        score = matchCount * 30;
-      }
+    }
+  } catch (e) {
+    // DB not ready yet, skip custom foods
+  }
 
-      return { food, score };
-    })
+  return scored
     .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(item => item.food);
-
-  return results;
 }
 
 // Get food by ID

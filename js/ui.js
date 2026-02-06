@@ -14,7 +14,10 @@ class UI {
 
   // Date utilities
   formatDate(date) {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   formatDisplayDate(date) {
@@ -485,8 +488,8 @@ class UI {
     let searchTimeout;
     document.getElementById('food-search-input').addEventListener('input', (e) => {
       clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        const results = searchFoods(e.target.value);
+      searchTimeout = setTimeout(async () => {
+        const results = await searchFoods(e.target.value);
         this.renderSearchResults(results);
       }, 200);
     });

@@ -32,6 +32,27 @@ class App {
       this.weightChart = new SimpleChart(canvas);
     }
 
+    // Refresh date when app returns from background
+    this._lastDateStr = ui.formatDate(new Date());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const now = new Date();
+        const todayStr = ui.formatDate(now);
+        if (todayStr !== this._lastDateStr) {
+          const wasViewingOldToday = ui.formatDate(ui.currentDate) === this._lastDateStr;
+          this._lastDateStr = todayStr;
+          if (wasViewingOldToday) {
+            ui.currentDate = now;
+          }
+          this.loadDayEntries();
+        }
+        // Check for SW updates
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then(reg => reg.update());
+        }
+      }
+    });
+
     // Load initial view
     this.loadDayEntries();
   }
