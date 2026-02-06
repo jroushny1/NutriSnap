@@ -762,6 +762,32 @@ class UI {
       }
     });
 
+    // Cloud Backup
+    document.getElementById('sync-now-btn').addEventListener('click', async () => {
+      const status = document.getElementById('sync-status');
+      status.textContent = 'Syncing...';
+      try {
+        const result = await syncToSupabase();
+        status.textContent = `Synced! ${result.entries} entries, ${result.weights} weights, ${result.recipes} recipes`;
+        app.showToast('Backup synced!');
+      } catch (e) {
+        status.textContent = 'Sync failed: ' + e.message;
+      }
+    });
+
+    document.getElementById('restore-cloud-btn').addEventListener('click', async () => {
+      const status = document.getElementById('sync-status');
+      status.textContent = 'Restoring...';
+      try {
+        const count = await restoreFromSupabase();
+        status.textContent = `Restored ${count} records from cloud`;
+        app.showToast('Data restored!');
+        app.loadDayEntries();
+      } catch (e) {
+        status.textContent = 'Restore failed: ' + e.message;
+      }
+    });
+
     // Onboarding
     document.querySelectorAll('.onboard-next').forEach(btn => {
       btn.addEventListener('click', () => {

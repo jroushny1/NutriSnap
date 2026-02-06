@@ -997,6 +997,16 @@ html, body {
   color: var(--secondary);
 }
 
+.sync-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sync-actions .btn-secondary {
+  flex: 1;
+}
+
 #api-key-status {
   font-size: 12px;
   margin-left: 8px;

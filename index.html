@@ -251,6 +251,23 @@
                         <span id="api-key-status"></span>
                     </div>
                     <div class="setting-group">
+                        <h3>Cloud Backup</h3>
+                        <p class="setting-hint">Connect to Supabase for automatic cloud backup. Create a free project at <a href="https://supabase.com" target="_blank">supabase.com</a></p>
+                        <div class="setting-row">
+                            <label for="setting-supabase-url">Project URL</label>
+                            <input type="url" id="setting-supabase-url" placeholder="https://xxx.supabase.co">
+                        </div>
+                        <div class="setting-row">
+                            <label for="setting-supabase-key">Anon Key</label>
+                            <input type="password" id="setting-supabase-key" placeholder="eyJ...">
+                        </div>
+                        <div class="sync-actions">
+                            <button id="sync-now-btn" class="btn-secondary">Sync Now</button>
+                            <button id="restore-cloud-btn" class="btn-secondary">Restore from Cloud</button>
+                        </div>
+                        <div id="sync-status" class="setting-hint"></div>
+                    </div>
+                    <div class="setting-group">
                         <h3>Data</h3>
                         <button id="export-data-btn" class="btn-secondary">Export Data (JSON)</button>
                         <button id="import-data-btn" class="btn-secondary">Import Data</button>
@@ -485,6 +502,7 @@
     <script src="js/camera.js"></script>
     <script src="js/charts.js"></script>
     <script src="js/insights.js"></script>
+    <script src="js/sync.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
     <script>

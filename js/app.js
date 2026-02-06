@@ -50,6 +50,10 @@ class App {
         if (navigator.serviceWorker && navigator.serviceWorker.controller) {
           navigator.serviceWorker.ready.then(reg => reg.update());
         }
+        // Auto-sync to Supabase if configured
+        nutriDB.getSetting('supabaseUrl').then(url => {
+          if (url) syncToSupabase().catch(() => {});
+        });
       }
     });
 
@@ -336,6 +340,16 @@ class App {
     if (apiKey) {
       document.getElementById('setting-api-key').value = apiKey;
     }
+    // Load Supabase credentials
+    const supabaseUrl = await nutriDB.getSetting('supabaseUrl');
+    const supabaseKey = await nutriDB.getSetting('supabaseKey');
+    if (supabaseUrl) document.getElementById('setting-supabase-url').value = supabaseUrl;
+    if (supabaseKey) document.getElementById('setting-supabase-key').value = supabaseKey;
+    // Show last sync time
+    const lastSync = await nutriDB.getSetting('lastSyncAt');
+    if (lastSync) {
+      document.getElementById('sync-status').textContent = 'Last synced: ' + new Date(lastSync).toLocaleString();
+    }
   }
 
   // Save settings
@@ -357,6 +371,12 @@ class App {
     } else {
       await nutriDB.setSetting('anthropicApiKey', null);
     }
+
+    // Save Supabase credentials
+    const supabaseUrl = document.getElementById('setting-supabase-url').value.trim();
+    const supabaseKey = document.getElementById('setting-supabase-key').value.trim();
+    await nutriDB.setSetting('supabaseUrl', supabaseUrl || null);
+    await nutriDB.setSetting('supabaseKey', supabaseKey || null);
 
     await nutriDB.setSettings(newSettings);
     this.settings = newSettings;
