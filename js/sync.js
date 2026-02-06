@@ -36,7 +36,13 @@ async function syncToSupabase() {
   const client = await initSupabase();
   if (!client) throw new Error('Supabase not configured. Add URL and key in Settings.');
 
+  // Get current user ID for row-level security
+  const { data: { session } } = await client.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error('Not authenticated. Please try again.');
+
   const lastSync = await nutriDB.getSetting('lastSyncAt') || 0;
+  const errors = [];
 
   // Get all local data
   const entries = await nutriDB.getAll('entries');
@@ -49,40 +55,41 @@ async function syncToSupabase() {
   const newEntries = entries.filter(e => (e.createdAt || 0) > lastSync);
   const newWeights = weights.filter(w => (w.timestamp || 0) > lastSync);
 
-  // Strip photo blobs before syncing
+  // Strip photo blobs and attach user_id before syncing
   const cleanEntries = newEntries.map(e => {
     const { photoBlob, ...rest } = e;
-    return rest;
+    return { ...rest, user_id: userId };
   });
 
   const cleanRecipes = recipes.map(r => {
     const { photoBlob, ...rest } = r;
-    return rest;
+    return { ...rest, user_id: userId };
   });
 
   // Upsert to Supabase tables
   if (cleanEntries.length > 0) {
     const { error } = await client.from('food_entries').upsert(cleanEntries, { onConflict: 'id' });
-    if (error) console.warn('Sync entries error:', error.message);
+    if (error) { errors.push('entries: ' + error.message); console.error('Sync entries error:', error); }
   }
 
   if (newWeights.length > 0) {
-    const { error } = await client.from('weights').upsert(newWeights, { onConflict: 'date' });
-    if (error) console.warn('Sync weights error:', error.message);
+    const rows = newWeights.map(w => ({ ...w, user_id: userId }));
+    const { error } = await client.from('weights').upsert(rows, { onConflict: 'date' });
+    if (error) { errors.push('weights: ' + error.message); console.error('Sync weights error:', error); }
   }
 
   if (cleanRecipes.length > 0) {
     const { error } = await client.from('recipes').upsert(cleanRecipes, { onConflict: 'id' });
-    if (error) console.warn('Sync recipes error:', error.message);
+    if (error) { errors.push('recipes: ' + error.message); console.error('Sync recipes error:', error); }
   }
 
   if (customFoods.length > 0) {
     const cleanFoods = customFoods.map(f => {
       const { photoBlob, ...rest } = f;
-      return rest;
+      return { ...rest, user_id: userId };
     });
     const { error } = await client.from('custom_foods').upsert(cleanFoods, { onConflict: 'id' });
-    if (error) console.warn('Sync custom foods error:', error.message);
+    if (error) { errors.push('custom_foods: ' + error.message); console.error('Sync custom foods error:', error); }
   }
 
   // Sync settings (excluding api keys for safety)
@@ -91,14 +98,19 @@ async function syncToSupabase() {
   );
   if (safeSettings.length > 0) {
     const { error } = await client.from('settings').upsert(
-      safeSettings.map(s => ({ key: s.key, value: JSON.stringify(s.value) })),
+      safeSettings.map(s => ({ key: s.key, value: JSON.stringify(s.value), user_id: userId })),
       { onConflict: 'key' }
     );
-    if (error) console.warn('Sync settings error:', error.message);
+    if (error) { errors.push('settings: ' + error.message); console.error('Sync settings error:', error); }
   }
 
-  // Update last sync timestamp
-  await nutriDB.setSetting('lastSyncAt', Date.now());
+  // Only update last sync timestamp if no errors occurred
+  if (errors.length === 0) {
+    await nutriDB.setSetting('lastSyncAt', Date.now());
+  } else {
+    console.error('Sync completed with errors:', errors);
+    throw new Error('Sync errors: ' + errors.join('; '));
+  }
 
   return {
     entries: cleanEntries.length,
