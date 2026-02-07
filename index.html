@@ -254,6 +254,7 @@
                         <div class="setting-row">
                             <label for="setting-api-key">API Key</label>
                             <input type="password" id="setting-api-key" placeholder="sk-ant-...">
+                            <button type="button" class="btn-show-key" onclick="const i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'Show':'Hide'">Show</button>
                         </div>
                         <button id="test-api-key-btn" class="btn-secondary">Test Key</button>
                         <span id="api-key-status"></span>
@@ -268,6 +269,7 @@
                         <div class="setting-row">
                             <label for="setting-supabase-key">Anon Key</label>
                             <input type="password" id="setting-supabase-key" placeholder="eyJ...">
+                            <button type="button" class="btn-show-key" onclick="const i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'Show':'Hide'">Show</button>
                         </div>
                         <div class="sync-actions">
                             <button id="sync-now-btn" class="btn-secondary">Sync Now</button>

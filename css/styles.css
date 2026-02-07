@@ -764,6 +764,17 @@ html, body {
   text-align: right;
 }
 
+.btn-show-key {
+  padding: 6px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
 /* Camera */
 #camera-container {
   flex: 1;
