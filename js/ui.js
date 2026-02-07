@@ -767,6 +767,8 @@ class UI {
       const status = document.getElementById('sync-status');
       status.textContent = 'Syncing...';
       try {
+        // Reset sync timestamp to force full sync of all data
+        await nutriDB.setSetting('lastSyncAt', 0);
         const result = await syncToSupabase();
         status.textContent = `Synced! ${result.entries} entries, ${result.weights} weights, ${result.recipes} recipes`;
         app.showToast('Backup synced!');
