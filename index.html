@@ -7,6 +7,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#4CAF50">
     <title>NutriSnap</title>
+    <script>
+    // Force cache reset: visit ?reset to nuke all cached data
+    if (location.search.includes('reset')) {
+      caches.keys().then(k => k.forEach(c => caches.delete(c)));
+      navigator.serviceWorker.getRegistrations().then(r => r.forEach(sw => sw.unregister()));
+      location.replace(location.pathname);
+    }
+    </script>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="css/styles.css">
